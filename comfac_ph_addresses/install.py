@@ -77,7 +77,9 @@ def _import_psgc_data():
 def _load_psgc_json():
     import os
 
-    json_path = frappe.get_app_path("comfac_ph_addresses", "ph_locations_2019v2.json")
+    json_path = frappe.get_app_path(
+        "comfac_ph_addresses", "data", "ph_locations_2019v2.json"
+    )
     if not os.path.exists(json_path):
         frappe.log_error(
             "comfac_ph_addresses: PSGC data file not found at "
