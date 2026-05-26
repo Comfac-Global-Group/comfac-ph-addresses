@@ -2,29 +2,172 @@ import frappe
 
 
 def after_migrate():
-    _ensure_ph_location_doctypes()
+    _create_ph_location_doctypes()
     _import_psgc_data()
 
 
-def _ensure_ph_location_doctypes():
-    required = ["Philippine Province", "Philippine City", "Philippine Barangay"]
+# ─── DocType Field Definitions ──────────────────────────────────────────────
+
+_PROVINCE_FIELDS = [
+    {
+        "fieldname": "province_name",
+        "label": "Province Name",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1,
+        "in_standard_filter": 1,
+    },
+    {
+        "fieldname": "region_code",
+        "label": "Region Code",
+        "fieldtype": "Data",
+        "in_list_view": 1,
+        "in_standard_filter": 1,
+    },
+    {"fieldname": "region_name", "label": "Region Name", "fieldtype": "Data"},
+]
+
+_CITY_FIELDS = [
+    {
+        "fieldname": "city_name",
+        "label": "City/Municipality Name",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1,
+        "in_standard_filter": 1,
+    },
+    {
+        "fieldname": "province",
+        "label": "Province",
+        "fieldtype": "Link",
+        "options": "Philippine Province",
+        "reqd": 1,
+        "in_list_view": 1,
+    },
+    {
+        "fieldname": "city_type",
+        "label": "Type",
+        "fieldtype": "Select",
+        "options": "City\nMunicipality",
+        "in_list_view": 1,
+    },
+    {
+        "fieldname": "display_name",
+        "label": "Display Name",
+        "fieldtype": "Data",
+        "in_list_view": 1,
+    },
+]
+
+_BARANGAY_FIELDS = [
+    {
+        "fieldname": "barangay_name",
+        "label": "Barangay Name",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1,
+        "in_standard_filter": 1,
+    },
+    {
+        "fieldname": "city",
+        "label": "City/Municipality",
+        "fieldtype": "Link",
+        "options": "Philippine City",
+        "reqd": 1,
+        "in_list_view": 1,
+    },
+    {
+        "fieldname": "display_name",
+        "label": "Display Name",
+        "fieldtype": "Data",
+        "in_list_view": 1,
+    },
+    {"fieldname": "mail_code", "label": "Mail Code", "fieldtype": "Data"},
+]
+
+
+def _create_ph_location_doctypes():
     existing = frappe.db.get_list(
-        "DocType", pluck="name", filters=[["name", "in", required]]
+        "DocType",
+        pluck="name",
+        filters=[
+            [
+                "name",
+                "in",
+                ["Philippine Province", "Philippine City", "Philippine Barangay"],
+            ]
+        ],
     )
-    missing = set(required) - set(existing)
-    if missing:
-        frappe.log_error(
-            f"comfac_ph_addresses: Missing DocTypes {missing}. "
-            "Run bench migrate after installing the app."
-        )
+
+    doctype_defs = [
+        {
+            "name": "Philippine Province",
+            "module": "Setup",
+            "custom": 1,
+            "autoname": "field:province_name",
+            "fields": _PROVINCE_FIELDS,
+            "permissions": [
+                {
+                    "role": "System Manager",
+                    "read": 1,
+                    "write": 1,
+                    "create": 1,
+                    "delete": 1,
+                }
+            ],
+        },
+        {
+            "name": "Philippine City",
+            "module": "Setup",
+            "custom": 1,
+            "autoname": "format:{city_name}-{province}",
+            "fields": _CITY_FIELDS,
+            "permissions": [
+                {
+                    "role": "System Manager",
+                    "read": 1,
+                    "write": 1,
+                    "create": 1,
+                    "delete": 1,
+                }
+            ],
+        },
+        {
+            "name": "Philippine Barangay",
+            "module": "Setup",
+            "custom": 1,
+            "autoname": "hash",
+            "fields": _BARANGAY_FIELDS,
+            "permissions": [
+                {
+                    "role": "System Manager",
+                    "read": 1,
+                    "write": 1,
+                    "create": 1,
+                    "delete": 1,
+                }
+            ],
+        },
+    ]
+
+    for dt in doctype_defs:
+        if dt["name"] not in existing:
+            doc = frappe.get_doc({"doctype": "DocType", **dt})
+            doc.flags.ignore_permissions = True
+            doc.flags.ignore_mandatory = True
+            doc.insert()
+            frappe.db.commit()
 
 
 def _import_psgc_data():
-    if frappe.db.count("Philippine Province") > 0:
-        return
-
     data = _load_psgc_json()
     if not data:
+        return
+
+    if frappe.db.count("Philippine Province") > 0:
+        frappe.log_error(
+            "comfac_ph_addresses: PSGC data already imported (provinces > 0). Skipping."
+        )
         return
 
     for region_code, region_data in data.items():
@@ -50,7 +193,7 @@ def _import_psgc_data():
                     {
                         "doctype": "Philippine City",
                         "city_name": city_name,
-                        "province": province_name,
+                        "province": province_doc.name,
                         "city_type": city_data.get("city_type", "Municipality"),
                     }
                 )
