@@ -4,12 +4,19 @@ import frappe
 
 
 def address_on_update(doc, method):
-    if doc.custom_barangay and not doc.custom_mail_code:
-        mail_code = frappe.db.get_value(
-            "Philippine Barangay", doc.custom_barangay, "mail_code"
+    if not doc.get("custom_barangay"):
+        return
+    try:
+        if not doc.get("custom_mail_code"):
+            mail_code = frappe.db.get_value(
+                "Philippine Barangay", doc.custom_barangay, "mail_code"
+            )
+            if mail_code:
+                doc.db_set("custom_mail_code", mail_code)
+    except Exception:
+        frappe.log_error(
+            f"address_on_update failed for {doc.name}", frappe.get_traceback()
         )
-        if mail_code:
-            doc.db_set("custom_mail_code", mail_code)
 
 
 def geocode_address(doc, method):

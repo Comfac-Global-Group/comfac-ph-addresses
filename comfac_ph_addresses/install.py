@@ -115,6 +115,12 @@ def _create_address_custom_fields():
             "fieldtype": "Small Text",
             "insert_after": "gps_captured_on",
         },
+        {
+            "fieldname": "custom_mail_code",
+            "label": "Mail Code",
+            "fieldtype": "Data",
+            "insert_after": "custom_pin_details",
+        },
     ]
     for field in fields:
         exists = frappe.db.exists(
