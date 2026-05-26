@@ -3,6 +3,7 @@ import frappe
 
 def after_migrate():
     _create_ph_location_doctypes()
+    _create_address_custom_fields()
     _import_psgc_data()
 
 
@@ -84,6 +85,45 @@ _BARANGAY_FIELDS = [
     },
     {"fieldname": "mail_code", "label": "Mail Code", "fieldtype": "Data"},
 ]
+
+
+def _create_address_custom_fields():
+    """Add Philippine location fields to Address DocType if not already present."""
+    fields = [
+        {
+            "fieldname": "custom_barangay",
+            "label": "Barangay",
+            "fieldtype": "Link",
+            "options": "Philippine Barangay",
+            "insert_after": "city",
+        },
+        {
+            "fieldname": "custom_geolocation",
+            "label": "Geolocation",
+            "fieldtype": "Geolocation",
+            "insert_after": "custom_barangay",
+        },
+        {
+            "fieldname": "gps_captured_on",
+            "label": "GPS Captured On",
+            "fieldtype": "Datetime",
+            "insert_after": "custom_geolocation",
+        },
+        {
+            "fieldname": "custom_pin_details",
+            "label": "Pin Details",
+            "fieldtype": "Small Text",
+            "insert_after": "gps_captured_on",
+        },
+    ]
+    for field in fields:
+        exists = frappe.db.exists(
+            "Custom Field", {"dt": "Address", "fieldname": field["fieldname"]}
+        )
+        if not exists:
+            cf = frappe.get_doc({"doctype": "Custom Field", "dt": "Address", **field})
+            cf.flags.ignore_permissions = True
+            cf.insert()
 
 
 def _create_ph_location_doctypes():
