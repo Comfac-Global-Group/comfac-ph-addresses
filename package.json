@@ -1,0 +1,6 @@
+{
+  "name": "comfac_ph_addresses",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PH Addresses - client JS served via Frappe doctype_js hook, no build needed"
+}
